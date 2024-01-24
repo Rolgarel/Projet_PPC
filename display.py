@@ -120,11 +120,11 @@ def end(victory, tab):
     res = skip(100)
     res = res + "***********************************************************************************************\n"
     res = res + "\n"
-    if victory:
+    if victory == 1:
         res = res + "     -=-= Victory =-=-\n"
         res = res + "\n"
         res = res + "  Score: " + str(score) + "\n"
-    else:
+    elif victory == -1:
         res = res + "     -=-= Defeat =-=-\n"
         res = res + "\n"
         res = res + "  Score: " + str(score(tab)) + "\n"
@@ -139,4 +139,24 @@ def score(tab):
     res = 0
     for i in tab:
         res = res + int(math.fabs(i))
+    return res
+
+
+def server_init():
+    return "Please enter the number of players\n"
+
+
+def server_initialized():
+    res = "The game is initialized!\n"
+    res = res + "The players can now join the game\n"
+    return res
+
+
+def server_end(victory):
+    res = "The game is finished!\n"
+    res = res + "Players "
+    if victory == 1:
+        res = res + "Win\n"
+    elif victory == -1:
+        res = res + "Lose\n"
     return res

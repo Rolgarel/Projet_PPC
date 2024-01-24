@@ -71,3 +71,18 @@ def give_info(nb_player, self):
             print("Invalid input")
     card = card - 1
     return str(player) + info_type + str(card)
+
+
+# request the number of players (to use at the start of the server)
+def server_players():
+    nb_players = None
+    print(display.server_init())
+    while nb_players is None:
+        try:
+            nb_players = int(input())
+            if nb_players < 2 or nb_players > 5:
+                nb_players = None
+                print("Invalid input")
+        except ValueError:
+            print("Invalid input")
+    return nb_players
