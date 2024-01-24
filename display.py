@@ -120,11 +120,11 @@ def end(victory, tab):
     res = skip(100)
     res = res + "***********************************************************************************************\n"
     res = res + "\n"
-    if victory == 1:
+    if victory:
         res = res + "     -=-= Victory =-=-\n"
         res = res + "\n"
         res = res + "  Score: " + str(score) + "\n"
-    elif victory == -1:
+    else:
         res = res + "     -=-= Defeat =-=-\n"
         res = res + "\n"
         res = res + "  Score: " + str(score(tab)) + "\n"

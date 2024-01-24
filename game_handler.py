@@ -70,7 +70,7 @@ def give_info(nb_player, self):
         except ValueError:
             print("Invalid input")
     card = card - 1
-    return str(player) + info_type + str(card)
+    return str(player) + " " + info_type + " " + str(card)
 
 
 # request the number of players (to use at the start of the server)
@@ -86,3 +86,38 @@ def server_players():
         except ValueError:
             print("Invalid input")
     return nb_players
+
+
+# complete the info request from the player with the missing cards
+def info_complete(info, hands):
+    content = info.split()
+    player = int(content[0])
+    info_type = content[1]
+    cards = []
+    for i in range(len(hands[player])):
+        if info_type == "c":
+            if hands[player][i][0] == hands[player][int(content[2])][0]:
+                cards.append(i)
+        else:
+            if hands[player][i][1] == hands[player][int(content[2])][1]:
+                cards.append(i)
+    return player, info_type, cards
+
+
+# Say if the victory conditions are met
+def victory(table):
+    res = True
+    for i in table:
+        if i != 5:
+            res = False
+    return res
+
+
+# Give the state of the game: 0 -> still going, 1 -> victory, -1 -> defeat
+def end(fuse, table):
+    res = 0
+    if fuse < 1:
+        res = - 1
+    if victory(table):
+        res = + 1
+    return res
