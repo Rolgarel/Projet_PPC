@@ -121,3 +121,30 @@ def end(fuse, table):
     if victory(table):
         res = + 1
     return res
+
+
+# get the id of a color
+def color_id(color, colors):
+    res = -1
+    for i in range(len(colors)):
+        if colors[i] == color:
+            res = i
+    return res
+
+
+# function to play a card server side
+def play(card_id, player, deck, hand_deck, fuse, table, colors):
+    card = hand_deck[player][card_id]
+    id_color = color_id(card[0], colors)
+    if table[id_color] == (card[1] - 1):
+        table[id_color] = card[1]
+    else:
+        fuse.value = fuse.value - 1
+    hand_deck[player][card_id] = deck[0]
+    deck.pop(0)
+    return deck, hand_deck
+
+
+# update player's hand deck
+def update_hands(player, card, card_id, hand_deck):
+    hand_deck[player][card_id] = card
