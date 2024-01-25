@@ -16,7 +16,7 @@ import game_handler
 serve = Value('b', True)
 HOST = "localhost"
 PORT = 6666
-PORT_SHARED = 6543
+PORT_SHARED = 6677
 KEY = b'Hippopotomonstrosesquippedaliophobie'
 
 
@@ -33,6 +33,13 @@ def signal_handler(sig, frame):
         tour.value = tour.value + 1
         partie_en_cours.value = game_handler.end(shared.get_token_fuse(), table)
         attente.value = False
+
+
+def signal_handler_process():
+    signal.signal(signal.SIGUSR1, signal_handler)
+    signal.signal(signal.SIGUSR2, signal_handler)
+    while True:
+        pass
 
 
 # fonction qui transforme le handdeck avec des zeros  pour le joueur désigné
@@ -85,7 +92,7 @@ def inittable(nb_j):
         table[i] = 0
 
 
-def communication(client_socket, couleurs, deck, pipe_child):
+def communication(shared, client_socket, couleurs, deck, pipe_child):
     # échange des ppid
     client_ppid = int(client_socket.recv(1024).decode())
     print("Son ppid client est : ", client_ppid)
@@ -93,13 +100,15 @@ def communication(client_socket, couleurs, deck, pipe_child):
     client_socket.sendall((str(ppid)).encode())
 
     proc_name = multiprocessing.current_process().name
-    num_play = int(proc_name[(len(proc_name)-1):])
+    num_play = int(proc_name[(len(proc_name) - 1):]) - 4
+    print(str(num_play) + "")
     player_pid[num_play] = client_ppid
     pipe = pipe_child[num_play - 1]
-    
-    # mess = (num_play + ";" + str(token_info.value) + ";" + str(token_fuse.value) + ";" + str(couleurs) + ";"
-            # + str(table[:]) + ";" + str(deck) + ";" + str(masque(hand_deck, int(num_play))))
-    # client_socket.sendall(mess.encode())
+
+    mess = (str(num_play) + ";" + str(shared.get_token_info()) + ";" + str(shared.get_token_fuse()) + ";" + str(
+        couleurs) + ";"
+            + str((shared.get_table()[:])) + ";" + str(deck) + ";" + str(masque(hand_deck, int(num_play))))
+    client_socket.sendall(mess.encode())
 
     # boucle de jeu
     while partie_en_cours.value == 0:
@@ -115,12 +124,16 @@ def send_card(pipe, card, card_id, player, player_id):
         pipe.send((str(player) + " " + str(card_id) + " " + card[0] + " " + str(card[1])).encode())
 
 
-def jeu(deck, hand_deck, colors, parent_pipe):
+# process de gestion de la boucle de jeu
+def jeu(deck, hand_deck, colors, parent_pipe, nb_joueurs):
     # initialisation
+
     # boucle de gameplay
     while partie_en_cours.value == 0:
-        if nb_joueurs_pret.value == nb_joueurs.value:
-            joueur_actif = tour.value % nb_joueurs.value
+        # print(str(nb_joueurs_pret.value))
+        if nb_joueurs_pret.value == nb_joueurs:
+            print("oui")
+            joueur_actif = tour.value % nb_joueurs
             os.kill(player_pid[joueur_actif], signal.SIGUSR1)
             while attente.value:
                 pass
@@ -129,24 +142,25 @@ def jeu(deck, hand_deck, colors, parent_pipe):
             if reception != "info":
                 reception = int(reception)
                 deck, hand_deck = game_handler.play(reception, joueur_actif, deck, hand_deck, fuse, table, colors)
-                for i in range(nb_joueurs.value):
+                for i in range(nb_joueurs):
                     send_card(parent_pipe[i], hand_deck[player][reception], reception, i, joueur_actif)
+
     # fin partie
 
 
 # process de gestion de la shared memory
 def shared_server(token_info, token_fuse, table):
-    SharedMemory.register('get_token_info', callable=token_info)
-    SharedMemory.register('get_token_fuse', callable=token_fuse)
-    SharedMemory.register('get_table', callable=table)
+    SharedMemory.register('get_token_info', callable=lambda: token_info)
+    SharedMemory.register('get_token_fuse', callable=lambda: token_fuse)
+    SharedMemory.register('get_table', callable=lambda: table)
     shared = SharedMemory(address=('', PORT_SHARED), authkey=KEY)
     server = shared.get_server()
     server.serve_forever()
 
 
 if __name__ == "__main__":
-    signal.signal(signal.SIGUSR1, signal_handler)
-    signal.signal(signal.SIGUSR2, signal_handler)
+    s = multiprocessing.Process(target=signal_handler_process, args=())
+    s.start()
 
     couleurs = ["Rouge", "Vert", "Jaune", "Bleu", "Blanc"]
     nb_joueurs = game_handler.server_players()
@@ -180,6 +194,8 @@ if __name__ == "__main__":
     # print(masque(hand_deck, 2))
 
     # création du process de gestion de partie
+    j = Process(target=jeu, args=(deck, hand_deck, couleurs, pipe_parent, nb_joueurs))
+    j.start()
 
     with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as server_socket:
         server_socket.bind((HOST, PORT))
@@ -190,5 +206,5 @@ if __name__ == "__main__":
             readable, writable, error = select.select([server_socket], [], [], 1)
             if server_socket in readable:  # if server_socket is ready
                 client_socket, address = server_socket.accept()  # will return immediately
-                p = Process(target=communication, args=(client_socket, couleurs, deck, pipe_child))
+                p = Process(target=communication, args=(shared, client_socket, couleurs, deck, pipe_child))
                 p.start()

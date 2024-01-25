@@ -3,16 +3,10 @@ import sys
 import socket
 import signal
 import multiprocessing
+import time
 from multiprocessing.managers import BaseManager
-
-
-def user():
-    answer = 3
-    while answer not in [1, 2]:
-        print("1. to get current date/time")
-        print("2. to terminate time server")
-        answer = int(input())
-    return answer
+import game_handler
+import display
 
 
 HOST = "localhost"
@@ -25,18 +19,23 @@ class SharedMemory(BaseManager):
     pass
 
 
-def signal_handler(signal, frame):
+def signal_handler(sig, frame):
     # Signal de début de tour
-    if signal == signal.SIGUSR1:
-        pass
+    if sig == signal.SIGUSR1:
+        tour.value = True
     # Signal de fin de partie
-    if signal == signal.SIGUSR2:
+    if sig == signal.SIGUSR2:
+        en_cours.value = False
+
+
+def signal_handler_process():
+    signal.signal(signal.SIGUSR1, signal_handler)
+    signal.signal(signal.SIGUSR2, signal_handler)
+    while True:
         pass
 
 
 def traduction(reponse):
-    fuse = int(reponse[4])
-    info = int(reponse[2])
     id_joueur = int(reponse[0])
     couleur = []
     table = []
@@ -59,7 +58,7 @@ def traduction(reponse):
             table.append(int(reponse[i]))
         i = i + 1
     i = i + 4
-    
+
     while reponse[i] != ";":  # i < len(reponse) :
         temp = ""
         while reponse[i] != ",":
@@ -99,10 +98,42 @@ def traduction(reponse):
         hand = []
         # reponse[i] = ]
         i = i + 1
-    return fuse, info, id_joueur, couleur, table, deck, hand_deck
+    return id_joueur, couleur, hand_deck
+
+
+# process de gestion de jeu
+def game(shared, player_id, colors, hand_deck, server_ppid):
+    os.kill(server_ppid, signal.SIGUSR1)
+
+    # boucle de gameplay
+    while en_cours.value:
+        print(display.state(colors, player_id, hand_deck, shared.get_table(), shared.get_token_fuse(), shared.get_token_info()))
+        if not tour:
+            print(display.wait())
+        while not tour:
+            pass
+        request_type, content = game_handler.request()
+        if request_type == "play":
+            card_to_play = int(content)
+            # envoi au serveur
+        else:
+            player, info_type, cards = game_handler.info_complete(content)
+            # envoi aux client
+            # consommation d'un tocken info
+        tour.value = False
+        os.kill(server_ppid, signal.SIGUSR2)
+        time.sleep(1)
+
+    # fin de partie
+    print(display.end(game_handler.end(shared.get_token_fuse(), shared.get_table()), shared.get_table()))
 
 
 if __name__ == "__main__":
+    s = multiprocessing.Process(target=signal_handler_process, args=())
+    s.start()
+
+    en_cours = multiprocessing.Value("b", True)
+    tour = multiprocessing.Value("b", False)
     SharedMemory.register('get_token_info')
     SharedMemory.register('get_token_fuse')
     SharedMemory.register('get_table')
@@ -114,19 +145,11 @@ if __name__ == "__main__":
         ppid = os.getppid()
         client_socket.sendall((str(ppid)).encode())
         server_ppid = int(client_socket.recv(1024).decode())
-        print("Le ppid serveur est: ", server_ppid)
+        # print("Le ppid serveur est: ", server_ppid)
 
-        m = user()
-        rep = client_socket.recv(2048)
+        rep = client_socket.recv(1024)
         reponse = rep.decode()
-        print(str(traduction(reponse)))
+        id_joueur, couleur, hand_deck = traduction(reponse)
         # print("\n\n" + reponse)
-        if m == 1:
-            os.kill(server_ppid, signal.SIGUSR1)
-            resp = client_socket.recv(1024)
-            if not len(resp):
-                print("The socket connection has been closed!")
-                sys.exit(1)
-            print("Server response:", resp.decode())
-        if m == 2:
-            os.kill(server_ppid, signal.SIGUSR2)
+
+        game(shared, id_joueur, couleur, hand_deck, server_ppid)
