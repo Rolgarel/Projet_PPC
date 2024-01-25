@@ -7,16 +7,14 @@ import time
 from multiprocessing.managers import BaseManager
 import game_handler
 import display
+from shared import SharedMemoryManager, SharedData
 
 
 HOST = "localhost"
 PORT = 6666
-PORT_SHARED = 6543
+PORT_SHARED = 6677
 KEY = b'Hippopotomonstrosesquippedaliophobie'
-
-
-class SharedMemory(BaseManager):
-    pass
+SharedMemoryManager.register('SharedData', SharedData)
 
 
 def signal_handler(sig, frame):
@@ -102,12 +100,12 @@ def traduction(reponse):
 
 
 # process de gestion de jeu
-def game(shared, player_id, colors, hand_deck, server_ppid):
+def game(shared_data, player_id, colors, hand_deck, server_ppid):
     os.kill(server_ppid, signal.SIGUSR1)
 
     # boucle de gameplay
     while en_cours.value:
-        print(display.state(colors, player_id, hand_deck, shared.get_table(), shared.get_token_fuse(), shared.get_token_info()))
+        print(display.state(colors, player_id, hand_deck, shared_data.get_table(), shared_data.get_token_fuse(), shared_data.get_token_info()))
         if not tour:
             print(display.wait())
         while not tour:
@@ -125,7 +123,7 @@ def game(shared, player_id, colors, hand_deck, server_ppid):
         time.sleep(1)
 
     # fin de partie
-    print(display.end(game_handler.end(shared.get_token_fuse(), shared.get_table()), shared.get_table()))
+    print(display.end(game_handler.end(shared_data.get_token_fuse(), shared_data.get_table()), shared_data.get_table()))
 
 
 if __name__ == "__main__":
@@ -134,10 +132,9 @@ if __name__ == "__main__":
 
     en_cours = multiprocessing.Value("b", True)
     tour = multiprocessing.Value("b", False)
-    SharedMemory.register('get_token_info')
-    SharedMemory.register('get_token_fuse')
-    SharedMemory.register('get_table')
-    shared = SharedMemory(address=(HOST, PORT_SHARED), authkey=KEY)
+    shared_memory = SharedMemoryManager(address=(HOST, PORT_SHARED), authkey=KEY)
+    shared_memory.connect()
+    shared_data = shared_memory.SharedData()
 
     with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as client_socket:
         client_socket.connect((HOST, PORT))
@@ -152,4 +149,4 @@ if __name__ == "__main__":
         id_joueur, couleur, hand_deck = traduction(reponse)
         # print("\n\n" + reponse)
 
-        game(shared, id_joueur, couleur, hand_deck, server_ppid)
+        game(shared_data, id_joueur, couleur, hand_deck, server_ppid)

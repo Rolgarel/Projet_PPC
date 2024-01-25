@@ -4,12 +4,13 @@ import select
 import time
 import socket
 import signal
-from multiprocessing import Value, Array, Process
+from multiprocessing import Value, Array, Process, Semaphore
 from multiprocessing.managers import BaseManager
 import random
 import concurrent.futures
 import multiprocessing
 import game_handler
+from shared import SharedMemoryManager, SharedData
 
 # envoie de l'id du client + la table + les cartes + tokens + la liste des couleurs
 
@@ -18,10 +19,7 @@ HOST = "localhost"
 PORT = 6666
 PORT_SHARED = 6677
 KEY = b'Hippopotomonstrosesquippedaliophobie'
-
-
-class SharedMemory(BaseManager):
-    pass
+SharedMemoryManager.register('SharedData', SharedData)
 
 
 def signal_handler(sig, frame):
@@ -31,7 +29,7 @@ def signal_handler(sig, frame):
     # Signal de fin de tour
     if sig == signal.SIGUSR2:
         tour.value = tour.value + 1
-        partie_en_cours.value = game_handler.end(shared.get_token_fuse(), table)
+        partie_en_cours.value = game_handler.end(shared_data.get_token_fuse(), table)
         attente.value = False
 
 
@@ -92,7 +90,7 @@ def inittable(nb_j):
         table[i] = 0
 
 
-def communication(shared, client_socket, couleurs, deck, pipe_child):
+def communication(shared_data, client_socket, couleurs, deck, pipe_child):
     # échange des ppid
     client_ppid = int(client_socket.recv(1024).decode())
     print("Son ppid client est : ", client_ppid)
@@ -105,9 +103,9 @@ def communication(shared, client_socket, couleurs, deck, pipe_child):
     player_pid[num_play] = client_ppid
     pipe = pipe_child[num_play - 1]
 
-    mess = (str(num_play) + ";" + str(shared.get_token_info()) + ";" + str(shared.get_token_fuse()) + ";" + str(
+    mess = (str(num_play) + ";" + str(shared_data.get_token_info()) + ";" + str(shared_data.get_token_fuse()) + ";" + str(
         couleurs) + ";"
-            + str((shared.get_table()[:])) + ";" + str(deck) + ";" + str(masque(hand_deck, int(num_play))))
+            + str((shared_data.get_table()[:])) + ";" + str(deck) + ";" + str(masque(hand_deck, int(num_play))))
     client_socket.sendall(mess.encode())
 
     # boucle de jeu
@@ -148,16 +146,6 @@ def jeu(deck, hand_deck, colors, parent_pipe, nb_joueurs):
     # fin partie
 
 
-# process de gestion de la shared memory
-def shared_server(token_info, token_fuse, table):
-    SharedMemory.register('get_token_info', callable=lambda: token_info)
-    SharedMemory.register('get_token_fuse', callable=lambda: token_fuse)
-    SharedMemory.register('get_table', callable=lambda: table)
-    shared = SharedMemory(address=('', PORT_SHARED), authkey=KEY)
-    server = shared.get_server()
-    server.serve_forever()
-
-
 if __name__ == "__main__":
     s = multiprocessing.Process(target=signal_handler_process, args=())
     s.start()
@@ -165,8 +153,6 @@ if __name__ == "__main__":
     couleurs = ["Rouge", "Vert", "Jaune", "Bleu", "Blanc"]
     nb_joueurs = game_handler.server_players()
 
-    token_info = 3 + nb_joueurs
-    token_fuse = 3
     table = Array('i', range(nb_joueurs))
 
     partie_en_cours = Value('i', 0)
@@ -176,9 +162,12 @@ if __name__ == "__main__":
     player_pid = Array('i', range(nb_joueurs))
 
     # création et lancement de la shared memory
-    s = Process(target=shared_server, args=(token_info, token_fuse, table))
-    s.start()
-    shared = SharedMemory(address=('', PORT_SHARED), authkey=KEY)
+    shared_memory = SharedMemoryManager(address=('', PORT_SHARED), authkey=KEY)
+    shared_memory.start()
+    shared_data = shared_memory.SharedData()
+    shared_data.set_token_info(3 + nb_joueurs)
+    shared_data.set_token_fuse(3)
+    shared_data.set_table([0]*nb_joueurs)
 
     pipe_parent = []
     pipe_child = []
@@ -206,5 +195,5 @@ if __name__ == "__main__":
             readable, writable, error = select.select([server_socket], [], [], 1)
             if server_socket in readable:  # if server_socket is ready
                 client_socket, address = server_socket.accept()  # will return immediately
-                p = Process(target=communication, args=(shared, client_socket, couleurs, deck, pipe_child))
+                p = Process(target=communication, args=(shared_data, client_socket, couleurs, deck, pipe_child))
                 p.start()
