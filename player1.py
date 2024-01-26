@@ -3,6 +3,7 @@ import sys
 import socket
 import signal
 import multiprocessing
+from multiprocessing import Value, Array, Process, Semaphore
 import time
 from multiprocessing.managers import BaseManager
 import game_handler
@@ -123,7 +124,7 @@ def game(shared_data, player_id, colors, hand_deck, server_ppid, client_socket):
         request_type, content = game_handler.request(len(hand_deck), player_id)
         if request_type == "play":
             card_to_play = int(content)
-            client_socket.sendall(str(player_id) + " " + str(card_to_play))
+            client_socket.sendall((str(player_id) + " " + str(card_to_play)).encode())
         else:
             player, info_type, cards = game_handler.info_complete(content)
             client_socket.sendall("info")
@@ -140,7 +141,6 @@ def game(shared_data, player_id, colors, hand_deck, server_ppid, client_socket):
 if __name__ == "__main__":
     signal.signal(signal.SIGUSR1, signal_handler)
     signal.signal(signal.SIGUSR2, signal_handler)
-    time.sleep(10)
 
     en_cours = multiprocessing.Value("b", True)
     tour = multiprocessing.Value("b", False)
@@ -151,11 +151,11 @@ if __name__ == "__main__":
 
     with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as client_socket:
         client_socket.connect((HOST, PORT))
-        # échange des ppid
-        ppid = os.getppid()
-        client_socket.sendall((str(ppid)).encode())
+        # échange des pid
+        pid = os.getpid()
+        client_socket.sendall((str(pid)).encode())
         server_ppid = int(client_socket.recv(1024).decode())
-        # print("Le ppid serveur est: ", server_ppid)
+        # print("Le pid serveur est: ", server_ppid)
 
         rep = client_socket.recv(1024)
         reponse = rep.decode()
