@@ -71,3 +71,31 @@ class SharedData:
         self.table[position] = self.table[position] + 1
         for i in range(SEM_LOCK):
             self.sem_tab.release()
+
+    def decrease_token_info(self):
+        for i in range(SEM_LOCK):
+            self.sem_ti.acquire()
+        self.token_info = self.token_info - 1
+        for i in range(SEM_LOCK):
+            self.sem_ti.release()
+
+    def decrease_token_fuse(self):
+        for i in range(SEM_LOCK):
+            self.sem_tf.acquire()
+        self.token_fuse = self.token_fuse - 1
+        for i in range(SEM_LOCK):
+            self.sem_tf.release()
+
+    def increase_token_info(self):
+        for i in range(SEM_LOCK):
+            self.sem_ti.acquire()
+        self.token_info = self.token_info + 1
+        for i in range(SEM_LOCK):
+            self.sem_ti.release()
+
+    def increase_token_fuse(self):
+        for i in range(SEM_LOCK):
+            self.sem_tf.acquire()
+        self.token_fuse = self.token_fuse + 1
+        for i in range(SEM_LOCK):
+            self.sem_tf.release()

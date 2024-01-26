@@ -26,13 +26,6 @@ def signal_handler(sig, frame):
         en_cours.value = False
 
 
-def signal_handler_process():
-    signal.signal(signal.SIGUSR1, signal_handler)
-    signal.signal(signal.SIGUSR2, signal_handler)
-    while True:
-        pass
-
-
 def traduction(reponse):
     id_joueur = int(reponse[0])
     couleur = []
@@ -99,25 +92,43 @@ def traduction(reponse):
     return id_joueur, couleur, hand_deck
 
 
+def trad(reponse):
+    rep = reponse.split(";")
+    id_joueur = int(rep[0])
+    couleur = trad_couleur(rep[1])
+    hand_deck = trad_hand(rep[2])
+    return id_joueur, couleur, hand_deck
+
+
+def trad_couleur(c):
+    pass  # à faire
+
+
+def trad_hand(hd):
+    pass  # à faire
+
+
 # process de gestion de jeu
-def game(shared_data, player_id, colors, hand_deck, server_ppid):
+def game(shared_data, player_id, colors, hand_deck, server_ppid, client_socket):
+    time.sleep(1)
     os.kill(server_ppid, signal.SIGUSR1)
 
     # boucle de gameplay
     while en_cours.value:
         print(display.state(colors, player_id, hand_deck, shared_data.get_table(), shared_data.get_token_fuse(), shared_data.get_token_info()))
-        if not tour:
+        if not tour.value:
             print(display.wait())
-        while not tour:
+        while not tour.value:
             pass
-        request_type, content = game_handler.request()
+        request_type, content = game_handler.request(len(hand_deck), player_id)
         if request_type == "play":
             card_to_play = int(content)
-            # envoi au serveur
+            client_socket.sendall(str(player_id) + " " + str(card_to_play))
         else:
             player, info_type, cards = game_handler.info_complete(content)
+            client_socket.sendall("info")
             # envoi aux client
-            # consommation d'un tocken info
+            shared_data.decrease_token_info()
         tour.value = False
         os.kill(server_ppid, signal.SIGUSR2)
         time.sleep(1)
@@ -127,14 +138,16 @@ def game(shared_data, player_id, colors, hand_deck, server_ppid):
 
 
 if __name__ == "__main__":
-    s = multiprocessing.Process(target=signal_handler_process, args=())
-    s.start()
+    signal.signal(signal.SIGUSR1, signal_handler)
+    signal.signal(signal.SIGUSR2, signal_handler)
+    time.sleep(10)
 
     en_cours = multiprocessing.Value("b", True)
     tour = multiprocessing.Value("b", False)
     shared_memory = SharedMemoryManager(address=(HOST, PORT_SHARED), authkey=KEY)
     shared_memory.connect()
     shared_data = shared_memory.SharedData()
+    print("shared : ", shared_data.get_table())
 
     with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as client_socket:
         client_socket.connect((HOST, PORT))
@@ -149,4 +162,4 @@ if __name__ == "__main__":
         id_joueur, couleur, hand_deck = traduction(reponse)
         # print("\n\n" + reponse)
 
-        game(shared_data, id_joueur, couleur, hand_deck, server_ppid)
+        game(shared_data, id_joueur, couleur, hand_deck, server_ppid, client_socket)

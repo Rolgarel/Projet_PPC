@@ -33,13 +33,6 @@ def signal_handler(sig, frame):
         attente.value = False
 
 
-def signal_handler_process():
-    signal.signal(signal.SIGUSR1, signal_handler)
-    signal.signal(signal.SIGUSR2, signal_handler)
-    while True:
-        pass
-
-
 # fonction qui transforme le handdeck avec des zeros  pour le joueur désigné
 def masque(hand_deck, n_joueur):
     res = []
@@ -98,14 +91,16 @@ def communication(shared_data, client_socket, couleurs, deck, pipe_child):
     client_socket.sendall((str(ppid)).encode())
 
     proc_name = multiprocessing.current_process().name
-    num_play = int(proc_name[(len(proc_name) - 1):]) - 4
+    num_play = int(proc_name[(len(proc_name) - 1):]) - 3
     print(str(num_play) + "")
     player_pid[num_play] = client_ppid
     pipe = pipe_child[num_play - 1]
 
-    mess = (str(num_play) + ";" + str(shared_data.get_token_info()) + ";" + str(shared_data.get_token_fuse()) + ";" + str(
-        couleurs) + ";"
-            + str((shared_data.get_table()[:])) + ";" + str(deck) + ";" + str(masque(hand_deck, int(num_play))))
+    mess = (str(num_play) + ";" + str(shared_data.get_token_info()) + ";" + str(shared_data.get_token_fuse()) + ";"
+            + str(couleurs) + ";" + str((shared_data.get_table()[:])) + ";" + str(deck) + ";" + str(masque(hand_deck,
+                                                                                                           int(num_play))))
+    # mess = str(num_play) + ";" + str(couleurs) + ";" + str(masque(hand_deck, num_play))
+    # print(mess)
     client_socket.sendall(mess.encode())
 
     # boucle de jeu
@@ -147,8 +142,8 @@ def jeu(deck, hand_deck, colors, parent_pipe, nb_joueurs):
 
 
 if __name__ == "__main__":
-    s = multiprocessing.Process(target=signal_handler_process, args=())
-    s.start()
+    signal.signal(signal.SIGUSR1, signal_handler)
+    signal.signal(signal.SIGUSR2, signal_handler)
 
     couleurs = ["Rouge", "Vert", "Jaune", "Bleu", "Blanc"]
     nb_joueurs = game_handler.server_players()
@@ -167,7 +162,7 @@ if __name__ == "__main__":
     shared_data = shared_memory.SharedData()
     shared_data.set_token_info(3 + nb_joueurs)
     shared_data.set_token_fuse(3)
-    shared_data.set_table([0]*nb_joueurs)
+    shared_data.set_table([0] * nb_joueurs)
 
     pipe_parent = []
     pipe_child = []
