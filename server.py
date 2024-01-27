@@ -10,6 +10,7 @@ import random
 import concurrent.futures
 import multiprocessing
 import game_handler
+import display
 from shared import SharedMemoryManager, SharedData
 
 # envoie de l'id du client + la table + les cartes + tokens + la liste des couleurs
@@ -127,7 +128,15 @@ def player(shared_data, client_socket, couleurs):
                 shared_data.give_card(card, num_play, int(req[2]))
             if req[0] == "info":
                 shared_data.decrease_token_info()
-                # share the info
+                hd = shared_data.get_hand_deck()
+                player, info_type, cards = game_handler.info_complete(req[2], hd)
+                if info_type == "c":
+                    data = hd[player][cards[0]][0]
+                else:
+                    data = str(hd[player][cards[0]][1])
+                info = display.info(info_type, cards, data, player)
+                print(info)
+                # share info
             client_socket.sendall("done".encode())
             time.sleep(1)
 
