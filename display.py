@@ -7,7 +7,10 @@ def hand(player, cards):
     for i in range(len(cards)):
         if i != 0:
             res = res + "|"
-        res = res + " " + str(i + 1) + ":(" + cards[i][0] + " , " + str(cards[i][1]) + ") "
+        if cards[i] == ('null', 0):
+            res = res + " " + str(i + 1) + ":(_ , _) "
+        else:
+            res = res + " " + str(i + 1) + ":(" + cards[i][0] + " , " + str(cards[i][1]) + ") "
     res = res + "\n"
     return res
 
@@ -18,7 +21,10 @@ def self_hand(cards):
     for i in range(len(cards)):
         if i != 0:
             res = res + " | "
-        res = res + " " + str(i + 1) + ":(*,*) "
+        if cards[i] == ('null', 0):
+            res = res + " " + str(i + 1) + ":(_ , _) "
+        else:
+            res = res + " " + str(i + 1) + ":(* , *) "
     res = res + "\n"
     return res
 

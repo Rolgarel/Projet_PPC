@@ -130,21 +130,3 @@ def color_id(color, colors):
         if colors[i] == color:
             res = i
     return res
-
-
-# function to play a card server side
-def play(card_id, player, deck, hand_deck, fuse, table, colors):
-    card = hand_deck[player][card_id]
-    id_color = color_id(card[0], colors)
-    if table[id_color] == (card[1] - 1):
-        table[id_color] = card[1]
-    else:
-        fuse.value = fuse.value - 1
-    hand_deck[player][card_id] = deck[0]
-    deck.pop(0)
-    return deck, hand_deck
-
-
-# update player's hand deck
-def update_hands(player, card, card_id, hand_deck):
-    hand_deck[player][card_id] = card
