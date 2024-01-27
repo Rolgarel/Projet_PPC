@@ -124,8 +124,7 @@ def player(shared_data, client_socket, couleurs):
                 else:
                     shared_data.decrease_token_fuse()
                 card = shared_data.get_card()
-                shared_data.give_card(card, num_play,int(req[2]))
-            # give a card
+                shared_data.give_card(card, num_play, int(req[2]))
             if req[0] == "info":
                 shared_data.decrease_token_info()
                 # share the info
@@ -135,6 +134,7 @@ def player(shared_data, client_socket, couleurs):
 
     # fin de partie
     send_game_state(num_play, shared_data, client_socket)
+    nb_joueurs_pret.value = nb_joueurs_pret.value - 1
 
 
 # process de gestion de la boucle de jeu
@@ -152,8 +152,11 @@ def game(colors, nb_joueurs, shared_data):
             shared_data.increase_turn()
 
     # fin partie
+    joueur_actif.value = -1
     for i in player_pid:
         os.kill(i, signal.SIGUSR2)
+    while nb_joueurs_pret.value > 0:
+        pass
     serve.value = False
 
 

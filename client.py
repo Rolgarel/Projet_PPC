@@ -73,11 +73,11 @@ def game_client(colors, player_id, table, fuse, info, hand_deck, server_ppid, cl
 
     # boucle de gameplay
     while en_cours.value:
-        if not tour.value:
+        if not tour.value and en_cours.value:
             print(display.wait())
-        while (not tour.value) and en_cours.value:
+        while not tour.value and en_cours.value:
             pass
-        if tour.value and en_cours.value:
+        if tour.value:
             player_id, fuse, info, table, hand_deck = receive_info(client_socket)
             print(display.state(colors, player_id, hand_deck, table, fuse, info))
             request_type, content = game_handler.request(len(hand_deck), player_id, info, hand_deck)
