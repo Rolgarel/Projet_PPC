@@ -12,7 +12,7 @@ import display
 
 HOST = "localhost"
 PORT = 6666
-couleurs = ["Rouge", "Vert", "Jaune", "Bleu", "Blanc"]
+couleurs = ["Red", "Green", "Yellow", "Blue", "White"]
 
 
 def signal_handler(sig, frame):
@@ -75,19 +75,19 @@ def game_client(colors, player_id, table, fuse, info, hand_deck, server_ppid, cl
     while en_cours.value:
         if not tour.value:
             print(display.wait())
-        while not tour.value:
+        while (not tour.value) and en_cours.value:
             pass
-        player_id, fuse, info, table, hands_deck = receive_info(client_socket)
-        print(display.state(colors, player_id, hand_deck, table, fuse, info))
-        request_type, content = game_handler.request(len(hand_deck), player_id)
-        client_socket.sendall((request_type + ";" + str(player_id) + ";" + content).encode())
-        tour.value = False
-        client_socket.recv(1024).decode()
-        os.kill(server_ppid, signal.SIGUSR2)
-        time.sleep(1)
+        if tour.value and en_cours.value:
+            player_id, fuse, info, table, hand_deck = receive_info(client_socket)
+            print(display.state(colors, player_id, hand_deck, table, fuse, info))
+            request_type, content = game_handler.request(len(hand_deck), player_id, info, hand_deck)
+            client_socket.sendall((request_type + ";" + str(player_id) + ";" + content).encode())
+            tour.value = False
+            client_socket.recv(1024).decode()
+            os.kill(server_ppid, signal.SIGUSR2)
 
     # fin de partie
-    player_id, fuse, info, table, hands_deck = receive_info(client_socket)
+    player_id, fuse, info, table, hand_deck = receive_info(client_socket)
     print(display.end(game_handler.end(fuse, table), table))
 
 

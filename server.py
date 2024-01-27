@@ -17,7 +17,7 @@ from shared import SharedMemoryManager, SharedData
 serve = Value('b', True)
 HOST = "localhost"
 PORT = 6666
-couleurs = ["Rouge", "Vert", "Jaune", "Bleu", "Blanc"]
+couleurs = ["Red", "Green", "Yellow", "Blue", "White"]
 PORT_SHARED = 6677
 KEY = b'Hippopotomonstrosesquippedaliophobie'
 SharedMemoryManager.register('SharedData', SharedData)
@@ -115,14 +115,26 @@ def player(shared_data, client_socket, couleurs):
             req = client_socket.recv(1024).decode()
             req = req.split(";")
             if req[0] == "play":
-                pass
+                card = shared_data.take_card(int(req[2]), num_play)
+                color_id = game_handler.color_id(card[0], couleurs)
+                if (color_id > -1) and (card[1] == (shared_data.get_table())[color_id] + 1):
+                    shared_data.tab_increment(color_id)
+                    if card[1] == 5:
+                        shared_data.increase_token_info()
+                else:
+                    shared_data.decrease_token_fuse()
+                card = shared_data.get_card()
+                shared_data.give_card(card, num_play,int(req[2]))
+            # give a card
             if req[0] == "info":
-                pass
-            # traitement
+                shared_data.decrease_token_info()
+                # share the info
             client_socket.sendall("done".encode())
+            time.sleep(1)
 
 
     # fin de partie
+    send_game_state(num_play, shared_data, client_socket)
 
 
 # process de gestion de la boucle de jeu
@@ -140,8 +152,9 @@ def game(colors, nb_joueurs, shared_data):
             shared_data.increase_turn()
 
     # fin partie
-    for i in player_pid.value:
+    for i in player_pid:
         os.kill(i, signal.SIGUSR2)
+    serve.value = False
 
 
 if __name__ == "__main__":

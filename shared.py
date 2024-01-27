@@ -158,28 +158,26 @@ class SharedData:
         res = ('null', 0)
         for i in range(SEM_LOCK):
             self.sem_deck.acquire()
-        if self.sem_deck:
-            res = self.sem_deck.pop()
+        if self.deck:
+            res = self.deck.pop()
         for i in range(SEM_LOCK):
             self.sem_deck.release()
         return res
 
     # give a card to a player
-    def give_card(self, card, player):
-        given = False
+    def give_card(self, card, player, c_id):
         for i in range(SEM_LOCK):
             self.sem_hd.acquire()
-        for i in range(self.hand_deck[player]):
-            if (self.hand_deck[player][i] == ('null', 0)) and not given:
-                given = True
-                self.hand_deck[player][i] = card
+        self.hand_deck[player][c_id] = card
         for i in range(SEM_LOCK):
             self.sem_hd.release()
 
     # remove a card from a player
-    def remove_card(self, card_id, player):
+    def take_card(self, card_id, player):
         for i in range(SEM_LOCK):
             self.sem_hd.acquire()
+        res = self.hand_deck[player][card_id]
         self.hand_deck[player][card_id] = ('null', 0)
         for i in range(SEM_LOCK):
             self.sem_hd.release()
+        return res

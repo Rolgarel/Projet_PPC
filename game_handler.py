@@ -2,7 +2,7 @@ import display
 
 
 # give the type of request and a description of it
-def request(nb_player, self):
+def request(nb_player, self, token_info, hands):
     request_type = None
     print(display.ask())
     while request_type is None:
@@ -11,17 +11,20 @@ def request(nb_player, self):
             if (request_type != "play") and (request_type != "info"):
                 request_type = None
                 print("Invalid input")
+            if (request_type == "info") and (token_info < 1):
+                request_type = None
+                print("You can't share an information because their is no more information token")
         except ValueError:
             print("Invalid input")
     if request_type == "play":
-        content = play_card()
+        content = play_card(hands, self)
     else:
         content = give_info(nb_player, self)
     return request_type, content
 
 
 # get the number of the card to play from the player
-def play_card():
+def play_card(hands, self):
     card = None
     print(display.ask_card())
     while card is None:
@@ -30,6 +33,9 @@ def play_card():
             if card < 1 or card > 5:
                 card = None
                 print("Invalid input")
+            if hands[self][card - 1] == ('null', 0):
+                card = None
+                print("You can't share a card that does not exist")
         except ValueError:
             print("Invalid input")
     card = card - 1
@@ -43,9 +49,12 @@ def give_info(nb_player, self):
     while player is None:
         try:
             player = int(input())
-            if player < 1 or player > nb_player or player == (self + 1):
+            if player < 1 or player > nb_player:
                 player = None
                 print("Invalid input")
+            if player == (self + 1):
+                player = None
+                print("You can't share information about yourself")
         except ValueError:
             print("Invalid input")
     player = player - 1
@@ -119,7 +128,7 @@ def end(fuse, table):
     if fuse < 1:
         res = - 1
     if victory(table):
-        res = + 1
+        res = 1
     return res
 
 
