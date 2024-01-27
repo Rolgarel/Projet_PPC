@@ -12,6 +12,7 @@ import multiprocessing
 import game_handler
 import display
 from shared import SharedMemoryManager, SharedData
+import sysv_ipc
 
 # envoie de l'id du client + la table + les cartes + tokens + la liste des couleurs
 
@@ -22,6 +23,7 @@ couleurs = ["Red", "Green", "Yellow", "Blue", "White"]
 PORT_SHARED = 6677
 KEY = b'Hippopotomonstrosesquippedaliophobie'
 SharedMemoryManager.register('SharedData', SharedData)
+MQKEY = 127
 
 
 def signal_handler(sig, frame):
@@ -81,22 +83,47 @@ def association(deck, nb_j):
     return res
 
 
-# initialise table
-def inittable(nb_j):
-    for i in range(nb_j):
-        table[i] = 0
+def init_mq(mq, nb_joueurs):
+    for i in range(nb_joueurs):
+        for j in range(nb_joueurs-i-1):
+            mq.send("".encode(), type=(i+1))
+
 
 
 # envoie les informations à faire afficher par le client
-def send_game_state(player_id, shared_data, socket):
+def send_game_state(player_id, shared_data, socket, infos):
     msg = str(player_id) + ";" + str(shared_data.get_token_fuse()) + ";" + str(shared_data.get_token_info()) + ";"
-    msg = msg + str(shared_data.get_table()) + ";" + str(shared_data.get_hand_deck())
+    msg = msg + str(shared_data.get_table()) + ";" + str(shared_data.get_hand_deck()) + ";" + infos
     # print(msg)
     socket.sendall(msg.encode())
 
 
+# permet de propager une information aux autres process player
+def spread_info(msg, mq, self, nb_players):
+    for i in range(nb_players):
+        if i != self:
+            # print(msg)
+            mq.send(msg.encode(), type=(i+1))
+
+
+# permet de récuperer les informations transmisent par les autres process player
+def get_info(mq, self, nb_player):
+    msgs = ""
+    for i in range(nb_player - 1):
+        m, t = mq.receive(type=(self + 1))
+        m = m.decode()
+        # print(m)
+        if m != "":
+            msgs = msgs + m + "\n"
+    if msgs == "":
+        msgs = " "
+    return msgs
+
+
 # process de gestion des interactions des joueurs avec le jeu
-def player(shared_data, client_socket, couleurs):
+def player(shared_data, client_socket, couleurs, nb_joueurs):
+    mq = sysv_ipc.MessageQueue(MQKEY)
+
     # échange des ppid
     client_pid = int(client_socket.recv(1024).decode())
     print("pid client est : ", client_pid)
@@ -107,14 +134,18 @@ def player(shared_data, client_socket, couleurs):
     num_play = int(proc_name[(len(proc_name) - 1):]) - 3
     player_pid[num_play] = client_pid
 
-    send_game_state(num_play, shared_data, client_socket)
+    infos = " "
+    send_game_state(num_play, shared_data, client_socket, infos)
 
     # boucle de jeu
     while partie_en_cours.value == 0:
         if joueur_actif.value == num_play:
-            send_game_state(num_play, shared_data, client_socket)
+            msg = ""
+            infos = get_info(mq, num_play, nb_joueurs)
+            send_game_state(num_play, shared_data, client_socket, infos)
             req = client_socket.recv(1024).decode()
             req = req.split(";")
+
             if req[0] == "play":
                 card = shared_data.take_card(int(req[2]), num_play)
                 color_id = game_handler.color_id(card[0], couleurs)
@@ -126,6 +157,7 @@ def player(shared_data, client_socket, couleurs):
                     shared_data.decrease_token_fuse()
                 card = shared_data.get_card()
                 shared_data.give_card(card, num_play, int(req[2]))
+
             if req[0] == "info":
                 shared_data.decrease_token_info()
                 hd = shared_data.get_hand_deck()
@@ -135,19 +167,18 @@ def player(shared_data, client_socket, couleurs):
                 else:
                     data = str(hd[player][cards[0]][1])
                 info = display.info(info_type, cards, data, player)
-                print(info)
-                # share info
+                msg = info
+            spread_info(msg, mq, num_play, nb_joueurs)
             client_socket.sendall("done".encode())
             time.sleep(1)
 
-
     # fin de partie
-    send_game_state(num_play, shared_data, client_socket)
+    send_game_state(num_play, shared_data, client_socket, infos)
     nb_joueurs_pret.value = nb_joueurs_pret.value - 1
 
 
 # process de gestion de la boucle de jeu
-def game(colors, nb_joueurs, shared_data):
+def game(nb_joueurs, shared_data):
     # initialisation
 
     # boucle de gameplay
@@ -161,6 +192,7 @@ def game(colors, nb_joueurs, shared_data):
             shared_data.increase_turn()
 
     # fin partie
+    print(display.server_end(game_handler.end(shared_data.get_token_fuse(), shared_data.get_table())))
     joueur_actif.value = -1
     for i in player_pid:
         os.kill(i, signal.SIGUSR2)
@@ -173,7 +205,14 @@ if __name__ == "__main__":
     signal.signal(signal.SIGUSR1, signal_handler)
     signal.signal(signal.SIGUSR2, signal_handler)
 
+    try:
+        mq = sysv_ipc.MessageQueue(MQKEY, sysv_ipc.IPC_CREX)
+    except ExistentialError:
+        print("Message queue", key, "already exsits, terminating.")
+        sys.exit(1)
+
     nb_joueurs = game_handler.server_players()
+    init_mq(mq, nb_joueurs)
 
     partie_en_cours = Value('i', 0)
     nb_joueurs_pret = Value('i', 0)
@@ -196,7 +235,7 @@ if __name__ == "__main__":
     shared_data.set_hand_deck(hd)
 
     # création du process de gestion de partie
-    j = Process(target=game, args=(couleurs, nb_joueurs, shared_data))
+    j = Process(target=game, args=(nb_joueurs, shared_data))
     j.start()
 
     with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as server_socket:
@@ -208,5 +247,8 @@ if __name__ == "__main__":
             readable, writable, error = select.select([server_socket], [], [], 1)
             if server_socket in readable:  # if server_socket is ready
                 client_socket, address = server_socket.accept()  # will return immediately
-                p = Process(target=player, args=(shared_data, client_socket, couleurs))
+                p = Process(target=player, args=(shared_data, client_socket, couleurs, nb_joueurs))
                 p.start()
+
+    time.sleep(3)
+    mq.remove()

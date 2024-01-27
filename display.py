@@ -103,9 +103,9 @@ def skip(n):
 # give a string describing the state of the ...
 def state(colors, self, hands, tab, fuse, info):
     res = skip(100)
-    res = res + "***********************************************************************************************\n"
+    res = res + "***********************************************************\n"
     res = res + "     Actual turn\n"
-    res = res + "***********************************************************************************************\n"
+    res = res + "***********************************************************\n"
     res = res + skip(1)
     for i in range(len(hands)):
         if i != self:
@@ -116,7 +116,7 @@ def state(colors, self, hands, tab, fuse, info):
     res = res + skip(1)
     res = res + self_hand(hands[self])
     res = res + skip(1)
-    res = res + "***********************************************************************************************\n"
+    res = res + "***********************************************************\n"
     res = res + skip(1)
     return res
 
@@ -124,7 +124,7 @@ def state(colors, self, hands, tab, fuse, info):
 # give a string that describe the end of the game
 def end(victory, tab):
     res = skip(100)
-    res = res + "***********************************************************************************************\n"
+    res = res + "***********************************************************\n"
     res = res + "\n"
     if victory == 1:
         res = res + "     -=-= Victory =-=-\n"
@@ -135,7 +135,7 @@ def end(victory, tab):
         res = res + "\n"
         res = res + "  Score: " + str(score(tab)) + "\n"
     res = res + "\n"
-    res = res + "***********************************************************************************************\n"
+    res = res + "***********************************************************\n"
     res = res + skip(2)
     return res
 

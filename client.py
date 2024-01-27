@@ -33,7 +33,8 @@ def receive_info(socket):
     info = int(msg[2])
     table = decode_table(msg[3])
     hands = decode_hands(msg[4])
-    return player_id, fuse, info, table, hands
+    infos = msg[5]
+    return player_id, fuse, info, table, hands, infos
 
 
 # permet de décoder table à partir d'un string
@@ -78,8 +79,10 @@ def game_client(colors, player_id, table, fuse, info, hand_deck, server_ppid, cl
         while not tour.value and en_cours.value:
             pass
         if tour.value:
-            player_id, fuse, info, table, hand_deck = receive_info(client_socket)
+            player_id, fuse, info, table, hand_deck, infos = receive_info(client_socket)
             print(display.state(colors, player_id, hand_deck, table, fuse, info))
+            if infos != " ":
+                print("\n Info : \n" + infos)
             request_type, content = game_handler.request(len(hand_deck), player_id, info, hand_deck)
             client_socket.sendall((request_type + ";" + str(player_id) + ";" + content).encode())
             tour.value = False
@@ -87,7 +90,7 @@ def game_client(colors, player_id, table, fuse, info, hand_deck, server_ppid, cl
             os.kill(server_ppid, signal.SIGUSR2)
 
     # fin de partie
-    player_id, fuse, info, table, hand_deck = receive_info(client_socket)
+    player_id, fuse, info, table, hand_deck, infos = receive_info(client_socket)
     print(display.end(game_handler.end(fuse, table), table))
 
 
@@ -106,6 +109,6 @@ if __name__ == "__main__":
         server_ppid = int(client_socket.recv(1024).decode())
         # print("Le pid serveur est: ", server_ppid)
 
-        player_id, fuse, info, table, hands = receive_info(client_socket)
+        player_id, fuse, info, table, hands, infos = receive_info(client_socket)
 
         game_client(couleurs, player_id, table, fuse, info, hands, server_ppid, client_socket)
