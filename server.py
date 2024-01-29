@@ -4,10 +4,8 @@ import select
 import time
 import socket
 import signal
-from multiprocessing import Value, Array, Process, Semaphore
-from multiprocessing.managers import BaseManager
+from multiprocessing import Value, Array, Process
 import random
-import concurrent.futures
 import multiprocessing
 import game_handler
 import display
@@ -208,7 +206,7 @@ if __name__ == "__main__":
     try:
         mq = sysv_ipc.MessageQueue(MQKEY, sysv_ipc.IPC_CREX)
     except ExistentialError:
-        print("Message queue", key, "already exsits, terminating.")
+        print("Message queue", MQKEY, "already exsits, terminating.")
         sys.exit(1)
 
     nb_joueurs = game_handler.server_players()

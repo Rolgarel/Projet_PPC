@@ -1,11 +1,8 @@
 import os
-import sys
 import socket
 import signal
 import multiprocessing
-from multiprocessing import Value, Array, Process, Semaphore
 import time
-from multiprocessing.managers import BaseManager
 import game_handler
 import display
 
