@@ -236,6 +236,7 @@ if __name__ == "__main__":
     j = Process(target=game, args=(nb_joueurs, shared_data))
     j.start()
 
+    display.server_initialized()
     with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as server_socket:
         server_socket.bind((HOST, PORT))
         # socket creation
